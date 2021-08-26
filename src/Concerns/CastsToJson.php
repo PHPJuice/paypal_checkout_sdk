@@ -4,7 +4,7 @@ namespace PayPal\Checkout\Concerns;
 
 use PayPal\Checkout\Exceptions\JsonEncodingException;
 
-trait HasJson
+trait CastsToJson
 {
     /**
      * Convert the model to its string representation.

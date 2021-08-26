@@ -2,6 +2,7 @@
 
 namespace Tests\Http;
 
+use Brick\Money\Exception\UnknownCurrencyException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Handler\MockHandler;
@@ -9,6 +10,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Utils;
 use PayPal\Checkout\Http\OrderCreateRequest;
+use PayPal\Checkout\Orders\AmountBreakdown;
 use PayPal\Checkout\Orders\ApplicationContext;
 use PayPal\Checkout\Orders\Item;
 use PayPal\Checkout\Orders\Order;
@@ -20,7 +22,7 @@ class OrderCreateRequestTest extends TestCase
     /**
      * @test
      */
-    public function testHasCorrectUri()
+    public function hasCorrectUri()
     {
         $request = new OrderCreateRequest();
         $this->assertEquals('/v2/checkout/orders', $request->getUri());
@@ -29,7 +31,7 @@ class OrderCreateRequestTest extends TestCase
     /**
      * @test
      */
-    public function testHasCorrectMethod()
+    public function hasCorrectMethod()
     {
         $request = new OrderCreateRequest();
         $this->assertEquals('POST', $request->getMethod());
@@ -38,7 +40,7 @@ class OrderCreateRequestTest extends TestCase
     /**
      * @test
      */
-    public function testHasCorrectHeaders()
+    public function hasCorrectHeaders()
     {
         $request = new OrderCreateRequest();
         $this->assertEquals('application/json', $request->getHeaderLine('Content-Type'));
@@ -47,20 +49,28 @@ class OrderCreateRequestTest extends TestCase
 
     /**
      * @test
+     * @throws UnknownCurrencyException
      */
-    public function testHasCorrectDataWithGetBody()
+    public function hasCorrectBody()
     {
-        $purchase_unit = new PurchaseUnit('USD', 100.00);
-        $purchase_unit->addItem(new Item('Item 1', 'USD', 100.00, 1));
-        $order = new Order('CAPTURE');
-        $order->addPurchaseUnit($purchase_unit);
+        // Arrange
+        $amount = AmountBreakdown::of('100.00');
+        $purchase_unit = new PurchaseUnit($amount);
+        $purchase_unit->addItem(Item::make('Item 1', '100.00'));
+
         $application_context = new ApplicationContext('Paypal Inc', 'en');
         $application_context->setUserAction('PAY_NOW');
         $application_context->setReturnUrl('https://site.com/payment/return');
         $application_context->setCancelUrl('https://site.com/payment/cancel');
+
+        $order = new Order('CAPTURE');
+        $order->addPurchaseUnit($purchase_unit);
         $order->setApplicationContext($application_context);
 
+        // Act
         $request = new OrderCreateRequest($order);
+
+        // Assert
         $this->assertEquals((string) $order, (string) $request->getBody());
         $this->assertEquals($order->toArray(), Utils::jsonDecode($request->getBody(), true));
     }
@@ -68,8 +78,40 @@ class OrderCreateRequestTest extends TestCase
     /**
      * @test
      * @throws GuzzleException
+     * @throws UnknownCurrencyException
      */
-    public function testExecuteRequest()
+    public function canExecuteRequest()
+    {
+        // Arrange
+        $amount = AmountBreakdown::of('100.00');
+        $purchase_unit = new PurchaseUnit($amount);
+        $purchase_unit->addItem(Item::make('Item 1', '100.00'));
+
+        $application_context = new ApplicationContext('Paypal Inc', 'en');
+        $application_context->setUserAction('PAY_NOW');
+        $application_context->setReturnUrl('https://site.com/payment/return');
+        $application_context->setCancelUrl('https://site.com/payment/cancel');
+
+        $order = new Order('CAPTURE');
+        $order->addPurchaseUnit($purchase_unit);
+        $order->setApplicationContext($application_context);
+
+        $client = $this->setupMockClient();
+
+        // Act
+        $response = $client->send(new OrderCreateRequest($order));
+
+        // Asserts
+        $this->assertEquals(200, $response->getStatusCode());
+        $result = Utils::jsonDecode((string) $response->getBody(), true);
+        $this->assertEquals([
+            'id' => '1KC5501443316171H',
+            'intent' => 'CAPTURE',
+            'status' => 'CREATED'
+        ], $result);
+    }
+
+    private function setupMockClient(): Client
     {
         $mockResponse = Utils::jsonEncode([
             'id' => '1KC5501443316171H',
@@ -80,19 +122,6 @@ class OrderCreateRequestTest extends TestCase
             new Response(200, ['Content-Type' => 'application/json'], $mockResponse),
         ]);
         $handlerStack = HandlerStack::create($mock);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $purchase_unit = new PurchaseUnit('USD', 100.00);
-        $purchase_unit->addItem(new Item('Item 1', 'USD', 100.00, 1));
-        $order = new Order('CAPTURE');
-        $order->addPurchaseUnit($purchase_unit);
-        $response = $client->send(new OrderCreateRequest($order));
-
-        $this->assertEquals(200, $response->getStatusCode());
-
-        $result = Utils::jsonDecode((string) $response->getBody());
-        $this->assertEquals('1KC5501443316171H', $result->id);
-        $this->assertEquals('CAPTURE', $result->intent);
-        $this->assertEquals('CREATED', $result->status);
+        return new Client(['handler' => $handlerStack]);
     }
 }

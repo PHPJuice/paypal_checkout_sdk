@@ -72,44 +72,61 @@ class ApplicationContextTest extends TestCase
 
     public function testSetsLocale()
     {
+        // Act
         $applicationContext = new ApplicationContext();
+        // Assert
         $this->assertEquals('en-US', $applicationContext->getLocale());
+
+        // Act
         $applicationContext->setLocale('fr');
+        // Assert
         $this->assertEquals('fr', $applicationContext->getLocale());
     }
 
     public function testSetsUrls()
     {
+        // Act
         $applicationContext = new ApplicationContext();
+
+        // Assert
         $this->assertEquals(null, $applicationContext->getReturnUrl());
         $this->assertEquals(null, $applicationContext->getCancelUrl());
+
+        // Act
         $applicationContext->setReturnUrl('test return url');
         $applicationContext->setCancelUrl('test cancel url');
+
+        // Assert
         $this->assertEquals('test return url', $applicationContext->getReturnUrl());
         $this->assertEquals('test cancel url', $applicationContext->getCancelUrl());
     }
 
-    public function testToArrayWithNoNullValues()
+    /**
+     * @test
+     */
+    public function canCastToArrayWithNoNullValues()
     {
-        $applicationContext = new ApplicationContext();
+        // Arrange
         $expected = [
             'locale' => 'en-US',
             'shipping_preference' => 'NO_SHIPPING',
             'landing_page' => 'NO_PREFERENCE',
             'user_action' => 'CONTINUE',
         ];
+
+        // Act
+        $applicationContext = new ApplicationContext();
+
+        // Assert
         $this->assertEquals($expected, $applicationContext->toArray());
     }
 
-    public function testToArray()
+    /**
+     * @test
+     */
+    public function canCastToArray()
     {
-        $applicationContext = new ApplicationContext('Paypal Inc');
-        $applicationContext->setCancelUrl('https://site.com/payment/cancel');
-        $applicationContext->setReturnUrl('https://site.com/payment/return');
-        $applicationContext->setLocale('fr');
-        $applicationContext->setShippingPreference('GET_FROM_FILE');
-        $applicationContext->setLandingPage('BILLING');
-        $applicationContext->setUserAction('PAY_NOW');
+        // Arrange
         $expected = [
             'brand_name' => 'Paypal Inc',
             'locale' => 'fr',
@@ -119,11 +136,8 @@ class ApplicationContextTest extends TestCase
             'return_url' => 'https://site.com/payment/return',
             'cancel_url' => 'https://site.com/payment/cancel',
         ];
-        $this->assertEquals($expected, $applicationContext->toArray());
-    }
 
-    public function testToJson()
-    {
+        // Act
         $applicationContext = new ApplicationContext('Paypal Inc');
         $applicationContext->setCancelUrl('https://site.com/payment/cancel');
         $applicationContext->setReturnUrl('https://site.com/payment/return');
@@ -131,15 +145,37 @@ class ApplicationContextTest extends TestCase
         $applicationContext->setShippingPreference('GET_FROM_FILE');
         $applicationContext->setLandingPage('BILLING');
         $applicationContext->setUserAction('PAY_NOW');
-        $expected = '{
-            "brand_name": "Paypal Inc",
-            "locale": "fr",
-            "shipping_preference": "GET_FROM_FILE",
-            "landing_page": "BILLING",
-            "user_action": "PAY_NOW",
-            "return_url": "https://site.com/payment/return",
-            "cancel_url": "https://site.com/payment/cancel"
-        }';
+
+        // Assert
+        $this->assertEquals($expected, $applicationContext->toArray());
+    }
+
+    /**
+     * @test
+     */
+    public function canCastToJson()
+    {
+        // Arrange
+        $expected = json_encode([
+            'brand_name' => 'Paypal Inc',
+            'locale' => 'fr',
+            'shipping_preference' => 'GET_FROM_FILE',
+            'landing_page' => 'BILLING',
+            'user_action' => 'PAY_NOW',
+            'return_url' => 'https://site.com/payment/return',
+            'cancel_url' => 'https://site.com/payment/cancel',
+        ]);
+
+        // Act
+        $applicationContext = new ApplicationContext('Paypal Inc');
+        $applicationContext->setCancelUrl('https://site.com/payment/cancel');
+        $applicationContext->setReturnUrl('https://site.com/payment/return');
+        $applicationContext->setLocale('fr');
+        $applicationContext->setShippingPreference('GET_FROM_FILE');
+        $applicationContext->setLandingPage('BILLING');
+        $applicationContext->setUserAction('PAY_NOW');
+
+        // Assert
         $this->assertJsonStringEqualsJsonString($expected, $applicationContext->toJson());
     }
 }

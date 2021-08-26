@@ -3,11 +3,11 @@
 namespace PayPal\Checkout\Orders;
 
 use ArrayAccess;
-use PayPal\Checkout\Concerns\HasJson;
+use PayPal\Checkout\Concerns\CastsToJson;
 use PayPal\Checkout\Contracts\Arrayable;
 use PayPal\Checkout\Contracts\Jsonable;
+use PayPal\Checkout\Exceptions\InvalidOrderException;
 use PayPal\Checkout\Exceptions\InvalidOrderIntentException;
-use PayPal\Checkout\Exceptions\OrderPurchaseUnitException;
 
 const CAPTURE = 'CAPTURE';
 const AUTHORIZE = 'AUTHORIZE';
@@ -17,14 +17,14 @@ const AUTHORIZE = 'AUTHORIZE';
  */
 class Order implements Arrayable, Jsonable, ArrayAccess
 {
-    use HasJson;
+    use CastsToJson;
 
     /**
      * The ID of the order.
      *
      * @var string read only
      */
-    protected $id;
+    protected string $id;
 
     /**
      * The intent to either capture payment immediately
@@ -38,7 +38,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
      *
      * @var string
      */
-    protected $intent;
+    protected string $intent;
 
     /**
      * An array of purchase units. At present only 1 purchase_unit is supported.
@@ -47,7 +47,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
      *
      * @var PurchaseUnit[]
      */
-    protected $purchase_units = [];
+    protected array $purchase_units = [];
 
     /**
      * The intent to either capture payment immediately or authorize a payment for an order after order creation.
@@ -62,23 +62,23 @@ class Order implements Arrayable, Jsonable, ArrayAccess
      *
      * @var string read only
      */
-    protected $status;
+    protected string $status;
 
     /**
      * The order application context.
      * https://developer.paypal.com/docs/api/orders/v2/#definition-order_application_context.
      *
-     * @var ApplicationContext
+     * @var ApplicationContext|null
      */
-    protected $application_context = null;
+    protected ?ApplicationContext $application_context = null;
 
     /**
      * The order payee.
      * https://developer.paypal.com/docs/api/orders/v2/#definition-payee.
      *
-     * @var Payee
+     * @var Payee|null
      */
-    protected $payee = null;
+    protected ?Payee $payee = null;
 
     /**
      * creates a new order instance.
@@ -95,8 +95,9 @@ class Order implements Arrayable, Jsonable, ArrayAccess
     public function addPurchaseUnit(PurchaseUnit $purchase_unit): self
     {
         if (count($this->purchase_units) >= 1) {
-            throw new OrderPurchaseUnitException('At present only 1 purchase_unit is supported.');
+            throw new InvalidOrderException('At present only 1 purchase_unit is supported.');
         }
+
         $this->purchase_units[] = $purchase_unit;
 
         return $this;
@@ -104,6 +105,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * return's order purchase units.
+     * @return PurchaseUnit[]
      */
     public function getPurchaseUnits(): array
     {
@@ -112,6 +114,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * return's order application context.
+     * @return ApplicationContext|null
      */
     public function getApplicationContext(): ?ApplicationContext
     {
@@ -120,6 +123,8 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * set's order application context.
+     * @param  ApplicationContext  $application_context
+     * @return Order
      */
     public function setApplicationContext(ApplicationContext $application_context): self
     {
@@ -130,6 +135,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * return's order intent.
+     * @return string
      */
     public function getIntent(): string
     {
@@ -138,6 +144,8 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * set's order intent.
+     * @param  string  $intent
+     * @return Order
      */
     public function setIntent(string $intent): self
     {
@@ -152,6 +160,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * return's order id.
+     * @return string
      */
     public function getId(): string
     {
@@ -160,6 +169,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * return's order status.
+     * @return string
      */
     public function getStatus(): string
     {
@@ -168,19 +178,18 @@ class Order implements Arrayable, Jsonable, ArrayAccess
 
     /**
      * Get the instance as an array.
+     * @return array
      */
     public function toArray(): array
     {
         if (empty($this->purchase_units)) {
-            throw new OrderPurchaseUnitException('Paypal orders must have 1 purchase_unit at least.');
+            throw InvalidOrderException::invalidPurchaseUnit();
         }
 
         return [
             'intent' => $this->intent,
             'purchase_units' => array_map(
-                function (PurchaseUnit $purchase_unit) {
-                    return $purchase_unit->toArray();
-                },
+                fn(PurchaseUnit $purchase_unit) => $purchase_unit->toArray(),
                 $this->purchase_units
             ),
             'application_context' => $this->application_context->toArray(),
@@ -199,7 +208,7 @@ class Order implements Arrayable, Jsonable, ArrayAccess
     /**
      * Unset an attribute on the model.
      *
-     * @param $offset
+     * @param  mixed  $offset
      * @return void
      */
     public function offsetUnset($offset)

@@ -2,6 +2,9 @@
 
 namespace PayPal\Checkout\Orders;
 
+use Brick\Money\Exception\UnknownCurrencyException;
+use Brick\Money\Money;
+
 /**
  * https://developer.paypal.com/docs/api/orders/v2/#definition-Amount_breakdown.
  */
@@ -13,25 +16,40 @@ class AmountBreakdown extends Amount
      * item_total.value can not be a negative number.
      * @var Money
      */
-    protected $item_total;
+    protected Money $item_total;
 
     /**
      * The discount for all items within a given purchase_unit. discount.value can not be a negative number.
-     * @var Money
+     * @var Money|null
      */
-    protected $discount;
+    protected ?Money $discount = null;
 
     /**
      * create a new AmountBreakdown instance.
+     * @param  string  $value
+     * @param  string  $currency_code
+     * @throws UnknownCurrencyException
      */
-    public function __construct(string $currency_code, float $value)
+    public function __construct(string $value, string $currency_code = 'USD')
     {
-        parent::__construct($currency_code, $value);
-        $this->item_total = new Money($value, $currency_code);
+        parent::__construct($value, $currency_code);
+        $this->item_total = Money::of($value, $currency_code);
+    }
+
+    /**
+     * @param  string  $value
+     * @param  string  $currency_code
+     * @return AmountBreakdown
+     * @throws UnknownCurrencyException
+     */
+    public static function of(string $value, string $currency_code = 'USD'): self
+    {
+        return new self($value, $currency_code);
     }
 
     /**
      * Get the instance as an array.
+     * @return array
      */
     public function toArray(): array
     {
@@ -40,16 +58,16 @@ class AmountBreakdown extends Amount
             'value' => $this->getValue(),
             'breakdown' => [
                 'item_total' => [
-                    'currency_code' => $this->item_total->getCurrencyCode(),
-                    'value' => $this->item_total->getAmount(),
+                    'currency_code' => $this->item_total->getCurrency()->getCurrencyCode(),
+                    'value' => (string) $this->item_total->getAmount(),
                 ],
             ],
         ];
 
         if ($this->hasDiscount()) {
             $data['breakdown']['discount'] = [
-                'currency_code' => $this->discount->getCurrencyCode(),
-                'value' => $this->discount->getAmount(),
+                'currency_code' => $this->discount->getCurrency()->getCurrencyCode(),
+                'value' => (string) $this->discount->getAmount(),
             ];
         }
 
@@ -73,6 +91,9 @@ class AmountBreakdown extends Amount
         return $this->discount;
     }
 
+    /**
+     * @param  Money  $discount
+     */
     public function setDiscount(Money $discount)
     {
         $this->discount = $discount;
@@ -87,6 +108,9 @@ class AmountBreakdown extends Amount
         return $this->item_total;
     }
 
+    /**
+     * @param  Money  $item_total
+     */
     public function setItemTotal(Money $item_total)
     {
         $this->item_total = $item_total;

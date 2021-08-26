@@ -2,85 +2,127 @@
 
 namespace Tests\Orders;
 
+use Brick\Money\Currency;
+use Brick\Money\Exception\UnknownCurrencyException;
+use Brick\Money\Money;
 use PayPal\Checkout\Orders\AmountBreakdown;
-use PayPal\Checkout\Orders\Currency;
-use PayPal\Checkout\Orders\Money;
 use PHPUnit\Framework\TestCase;
 
 class AmountBreakdownTest extends TestCase
 {
-    public function testToArray()
+    /**
+     * @test
+     * @throws UnknownCurrencyException
+     */
+    public function canCastToArray()
     {
-        $currency = Currency::from('USD');
-
+        // Arrange
+        $currency = Currency::of('USD');
         $expected = [
-            'currency_code' => 'USD',
-            'value' => 100.00,
+            'currency_code' => $currency->getCurrencyCode(),
+            'value' => "100.00",
             'breakdown' => [
                 'item_total' => [
-                    'currency_code' => 'USD',
-                    'value' => 100.00,
+                    'currency_code' => $currency->getCurrencyCode(),
+                    'value' => "100.00",
                 ],
             ],
         ];
-        $amount = new AmountBreakdown($currency->getCode(), 100.00);
-        $this->assertEquals($expected, $amount->toArray());
 
-        $expected = [
-            'currency_code' => $currency->getCode(),
-            'value' => 100.00,
-            'breakdown' => [
-                'item_total' => [
-                    'currency_code' => $currency->getCode(),
-                    'value' => 150.00,
-                ],
-                'discount' => [
-                    'currency_code' => $currency->getCode(),
-                    'value' => 50.00,
-                ],
-            ],
-        ];
-        $amount = new AmountBreakdown($currency->getCode(), 100.00);
-        $amount->setItemTotal(new Money(150, $currency));
-        $amount->setDiscount(new Money(50, $currency));
+        // Act
+        $amount = new AmountBreakdown("100.00", $currency->getCurrencyCode());
+
+        // Assert
         $this->assertEquals($expected, $amount->toArray());
     }
 
-    public function testToJson()
+    /**
+     * @test
+     * @throws UnknownCurrencyException
+     */
+    public function canCastToArrayWithDiscount()
     {
-        $currency = Currency::from('USD');
+        // Arrange
+        $currency = Currency::of('USD');
+        $expected = [
+            'currency_code' => $currency->getCurrencyCode(),
+            'value' => "100.00",
+            'breakdown' => [
+                'item_total' => [
+                    'currency_code' => $currency->getCurrencyCode(),
+                    'value' => "150.00",
+                ],
+                'discount' => [
+                    'currency_code' => $currency->getCurrencyCode(),
+                    'value' => "50.00",
+                ],
+            ],
+        ];
 
-        $expectedJson = [
-            "currency_code" => "USD",
-            "value" => 100.00,
+        // Act
+        $amount = new AmountBreakdown("100.00", $currency->getCurrencyCode());
+        $amount->setItemTotal(Money::of("150", $currency));
+        $amount->setDiscount(Money::of("50", $currency));
+
+        // Assert
+        $this->assertEquals($expected, $amount->toArray());
+    }
+
+    /**
+     * @test
+     * @throws UnknownCurrencyException
+     */
+    public function canCastToJson()
+    {
+        // Arrange
+        $currency = Currency::of('USD');
+        $expectedJson = json_encode([
+            "currency_code" => $currency->getCurrencyCode(),
+            "value" => "100.00",
             "breakdown" => [
                 "item_total" => [
-                    "currency_code" => "USD",
-                    "value" => 100.00
+                    "currency_code" => $currency->getCurrencyCode(),
+                    "value" => "100.00"
                 ]
             ]
-        ];
-        $amount = new AmountBreakdown('USD', 100.00);
-        $this->assertJsonStringEqualsJsonString(json_encode($expectedJson), $amount->toJson());
+        ]);
 
+        // Act
+        $amount = new AmountBreakdown("100.00", $currency->getCurrencyCode());
 
-        $expectedJson = [
+        // Assert
+        $this->assertJsonStringEqualsJsonString($expectedJson, $amount->toJson());
+    }
+
+    /**
+     * @test
+     * @throws UnknownCurrencyException
+     */
+    public function canCastToJsonWithDiscount()
+    {
+        // Arrange
+        $currency = Currency::of('USD');
+        $expectedJson = json_encode([
             "currency_code" => "USD",
-            "value" => 100.00,
+            "value" => "100.00",
             "breakdown" => [
                 "item_total" => [
                     "currency_code" => "USD",
-                    "value" => 150.00
+                    "value" => "150.00"
                 ],
                 "discount" => [
                     "currency_code" => "USD",
-                    "value" => 50.00
+                    "value" => "50.00"
                 ]
             ]
-        ];
-        $amount = new AmountBreakdown($currency->getCode(), 100.00);
-        $amount->setItemTotal(new Money(150, $currency));
-        $amount->setDiscount(new Money(50, $currency));
-        $this->assertEquals(json_encode($expectedJson), $amount->toJson());
+        ]);
+
+        // Act
+        $amount = new AmountBreakdown("100.00", $currency->getCurrencyCode());
+        $amount->setItemTotal(Money::of("150", $currency));
+        $amount->setDiscount(Money::of("50", $currency));
+
+        // Assert
+        $this->assertEquals($expectedJson, $amount->toJson());
     }
 }

@@ -2,11 +2,10 @@
 
 namespace PayPal\Checkout\Orders;
 
+use PayPal\Checkout\Concerns\CastsToJson;
 use PayPal\Checkout\Concerns\HasCollection;
-use PayPal\Checkout\Concerns\HasJson;
 use PayPal\Checkout\Contracts\Arrayable;
 use PayPal\Checkout\Contracts\Jsonable;
-use PayPal\Checkout\Exceptions\ItemTotalMismatchException;
 use PayPal\Checkout\Exceptions\MultiCurrencyOrderException;
 
 /**
@@ -14,7 +13,7 @@ use PayPal\Checkout\Exceptions\MultiCurrencyOrderException;
  */
 class PurchaseUnit implements Arrayable, Jsonable
 {
-    use HasJson;
+    use CastsToJson;
     use HasCollection;
 
     /**
@@ -24,25 +23,43 @@ class PurchaseUnit implements Arrayable, Jsonable
      *
      * @var AmountBreakdown
      */
-    protected $amount;
+    protected AmountBreakdown $amount;
 
     /**
      * An array of items that the customer purchases from the merchant.
      *
      * @var Item[]
      */
-    protected $items = [];
+    protected array $items = [];
 
     /**
      * Create a new collection.
      */
-    public function __construct(string $currency_code, float $value)
+    public function __construct(AmountBreakdown $amount)
     {
-        $this->amount = new AmountBreakdown($currency_code, $value);
+        $this->amount = $amount;
     }
 
     /**
      *  push a new item into items array.
+     * @param  Item[]  $items
+     * @return PurchaseUnit
+     * @throws MultiCurrencyOrderException
+     */
+    public function addItems(array $items): self
+    {
+        foreach ($items as $item) {
+            $this->addItem($item);
+        }
+
+        return $this;
+    }
+
+    /**
+     *  push a new item into items array.
+     * @param  Item  $item
+     * @return PurchaseUnit
+     * @throws MultiCurrencyOrderException
      */
     public function addItem(Item $item): self
     {
@@ -57,6 +74,7 @@ class PurchaseUnit implements Arrayable, Jsonable
 
     /**
      * return's purchase unit items.
+     * @return array
      */
     public function getItems(): array
     {
@@ -65,6 +83,7 @@ class PurchaseUnit implements Arrayable, Jsonable
 
     /**
      * return's the purchase unit amount breakdown.
+     * @return AmountBreakdown
      */
     public function getAmount(): AmountBreakdown
     {
@@ -73,47 +92,16 @@ class PurchaseUnit implements Arrayable, Jsonable
 
     /**
      * convert a purchase unit instance to array.
+     * @return array
      */
     public function toArray(): array
     {
-        $realAmount = $this->amount->getValue();
-        $calculatedAmount = $this->getCalculatedAmount();
-        $epsilon = 0.00001;
-
-        if (abs($calculatedAmount - $realAmount) > $epsilon) {
-            throw new ItemTotalMismatchException();
-        }
-
         return [
             'amount' => $this->amount->toArray(),
             'items' => array_map(
-                function (Item $item) {
-                    return $item->toArray();
-                },
+                fn(Item $item) => $item->toArray(),
                 $this->items
             ),
         ];
-    }
-
-    /**
-     * return's recalculated amount of the purchase unit.
-     */
-    public function getCalculatedAmount(): float
-    {
-        $itemsTotal = (float) array_reduce(
-            $this->items,
-            function ($totalAmount, Item $item) {
-                $amount = $item->getAmount();
-                $quantity = $item->getQuantity();
-                $totalAmount += $amount->getValue() * $quantity;
-
-                return $totalAmount;
-            },
-            0
-        );
-
-        $discount = $this->amount->hasDiscount() ? $this->amount->getDiscount()->getAmount() : 0;
-
-        return $itemsTotal - $discount;
     }
 }

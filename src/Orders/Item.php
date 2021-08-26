@@ -2,7 +2,9 @@
 
 namespace PayPal\Checkout\Orders;
 
-use PayPal\Checkout\Concerns\HasJson;
+use Brick\Money\Exception\UnknownCurrencyException;
+use PayPal\Checkout\Concerns\CastsToJson;
+use PayPal\Checkout\Contracts\Amount as AmountContract;
 use PayPal\Checkout\Contracts\Arrayable;
 use PayPal\Checkout\Contracts\Jsonable;
 use PayPal\Checkout\Exceptions\InvalidItemCategoryException;
@@ -15,53 +17,53 @@ const PHYSICAL_GOODS = 'PHYSICAL_GOODS';
  */
 class Item implements Arrayable, Jsonable
 {
-    use HasJson;
+    use CastsToJson;
 
     /**
      * The item name or title.
      *
      * @var string
      */
-    protected $name;
+    protected string $name;
 
     /**
      * The item price or rate per unit.
      * If you specify unit_amount, purchase_units[].amount.breakdown.item_total is required.
      * Must equal unit_amount * quantity for all items.
      *
-     * @var Amount
+     * @var AmountContract
      */
-    protected $unit_amount;
+    protected AmountContract $unit_amount;
 
     /**
      * The item tax for each unit.
      * If tax is specified, purchase_units[].amount.breakdown.tax_total is required.
      * Must equal tax * quantity for all items.
      *
-     * @var Amount
+     * @var AmountContract|null
      */
-    protected $tax = null;
+    protected ?AmountContract $tax = null;
 
     /**
      * The item quantity. Must be a whole number.
      *
      * @var int
      */
-    protected $quantity;
+    protected int $quantity;
 
     /**
      * The stock keeping unit (SKU) for the item.
      *
      * @var string
      */
-    protected $sku;
+    protected string $sku;
 
     /**
      * The detailed item description.
      *
      * @var string
      */
-    protected $description = '';
+    protected string $description = '';
 
     /**
      * The item category type. The possible values are:.The item category type. The possible values are:
@@ -70,23 +72,33 @@ class Item implements Arrayable, Jsonable
      *
      * @var string
      */
-    protected $category = DIGITAL_GOODS;
+    protected string $category = DIGITAL_GOODS;
 
     /**
      * create a new item instance.
      */
-    public function __construct(string $name, string $currency_code, float $value, int $quantity = 1)
+    public function __construct(string $name, AmountContract $amount, int $quantity = 1)
     {
         $this->name = $name;
-        $this->unit_amount = new Amount($currency_code, $value);
+        $this->unit_amount = $amount;
         $this->quantity = $quantity;
-        $this->sku = uniqid();
+        $this->sku = $this->setSku(uniqid());
+    }
+
+    /**
+     * create a new item instance.
+     * @throws UnknownCurrencyException
+     */
+    public static function make(string $name, string $value, string $currency_code = 'USD', int $quantity = 1): Item
+    {
+        $amount = Amount::of($value, $currency_code);
+        return new self($name, $amount, $quantity);
     }
 
     /**
      * set's item amount.
      */
-    public function setUnitAmount(Amount $unit_amount): self
+    public function setUnitAmount(AmountContract $unit_amount): self
     {
         $this->unit_amount = $unit_amount;
 
@@ -95,7 +107,6 @@ class Item implements Arrayable, Jsonable
 
     /**
      * return's item sku.
-     * @noinspection PhpUnused
      */
     public function getSku(): ?string
     {
@@ -104,7 +115,6 @@ class Item implements Arrayable, Jsonable
 
     /**
      * set's item sku.
-     * @noinspection PhpUnused
      */
     public function setSku(string $sku): self
     {
@@ -116,7 +126,7 @@ class Item implements Arrayable, Jsonable
     /**
      * return's item sku.
      */
-    public function getAmount(): Amount
+    public function getAmount(): AmountContract
     {
         return $this->unit_amount;
     }

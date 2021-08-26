@@ -7,23 +7,57 @@ use PHPUnit\Framework\TestCase;
 
 class PayeeTest extends TestCase
 {
-    public function testToArray()
+    /**
+     * @test
+     */
+    public function canMakePayee()
     {
+        // Arrange
         $expected = [
             'email_address' => 'payee@paypal.com',
             'merchant_id' => 'YP568Y95AVSDY',
         ];
-        $payee = new Payee('payee@paypal.com', 'YP568Y95AVSDY');
+
+        // Act
+        $payee = Payee::make('payee@paypal.com', 'YP568Y95AVSDY');
+
+        // Assert
         $this->assertEquals($expected, $payee->toArray());
     }
 
-    public function testToJson()
+    /**
+     * @test
+     */
+    public function canCastToArray()
     {
-        $expectedJson = ' {
-            "email_address": "payee@paypal.com",
-            "merchant_id": "YP568Y95AVSDY"
-        }';
+        // Arrange
+        $expected = [
+            'email_address' => 'payee@paypal.com',
+            'merchant_id' => 'YP568Y95AVSDY',
+        ];
+
+        // Act
         $payee = new Payee('payee@paypal.com', 'YP568Y95AVSDY');
-        $this->assertJsonStringEqualsJsonString($expectedJson, $payee->toJson());
+
+        // Assert
+        $this->assertEquals($expected, $payee->toArray());
+    }
+
+    /**
+     * @test
+     */
+    public function canCastToJson()
+    {
+        // Arrange
+        $expected = json_encode([
+            'email_address' => 'payee@paypal.com',
+            'merchant_id' => 'YP568Y95AVSDY',
+        ]);
+
+        // Act
+        $payee = Payee::make('payee@paypal.com', 'YP568Y95AVSDY');
+
+        // Assert
+        $this->assertJsonStringEqualsJsonString($expected, $payee->toJson());
     }
 }
